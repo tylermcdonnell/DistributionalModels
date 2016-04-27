@@ -1,4 +1,4 @@
-import simplejson
+import pickle
 import anydbm
 
 from abc import abstractmethod
@@ -57,30 +57,25 @@ class BerkeleyStore(ModelStore):
     def reset_memory(self):
         self.memory = defaultdict(Counter)
 
+    def keys(self):
+        return self.db.keys()
+
     def update(self, vectors):
         print ("Updating Berkeley store...")
         for word, features in vectors.items():
             word = str(word)
             if word in self.db:
                 persistent = self.db[str(word)]
-                persistent = Counter(simplejson.loads(persistent))
+                persistent = pickle.loads(persistent)
                 persistent.update(features)
-                self.db[word] = self._store_vector(persistent)
+                self.db[word] = pickle.dumps(persistent)
             else:
-                self.db[word] = self._store_vector(features)
+                self.db[word] = pickle.dumps(features)
         print ("Finished updating Berkeley Store!")
 
     def context(self, word):
-        return self._load_vector(self.db[word])
+        return pickle.loads(self.db[word])
 
     def vector(self, word):
         pass
 
-    def _load_vector(self, vector):
-        return simplejson.loads(vector)
-
-    def _store_vector(self, vector):
-        return str(simplejson.dumps(vector))
-
-
-        

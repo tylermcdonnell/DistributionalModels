@@ -15,7 +15,7 @@ class WordMap(object):
         return self.map[word]
 
     def demap(self, mapped_word):
-        return self.rmap[mapped_word]
+        return self.rmap[str(mapped_word)]
 
     def save(self, filename):
         pickle.dump(self, open(filename, 'wb'))
