@@ -40,13 +40,13 @@ class DistributionalModel(object):
             tokenizer = nltk.data.load('tokenizers/punkt/english.pickle') 
             count += 1
             print ("Training model on %d of %d: %s" % (count, len(files), file))
-            #try:
-            raw = open(file, 'rb').read()
-            sentences = tokenizer.tokenize(raw)
-            text = [nltk.word_tokenize(s) for s in sentences]
-            self.train(text, preprocessing_filters, token_filters)
-            #except:
-            #print ("Aborted training on %s - Unicode Error." % file)
+            try:
+                raw = open(file, 'rb').read()
+                sentences = tokenizer.tokenize(raw)
+                text = [nltk.word_tokenize(s) for s in sentences]
+                self.train(text, preprocessing_filters, token_filters)
+            except:
+                print ("Aborted training on %s - Unicode Error." % file)
 
     def _preprocessing(self, text, preprocessing_filters=None):
         '''
