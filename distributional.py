@@ -46,7 +46,7 @@ class DistributionalModel(object):
             text = [nltk.word_tokenize(s) for s in sentences]
             self.train(text, preprocessing_filters, token_filters)
             #except:
-            #    print ("Aborted training on %s - Unicode Error." % file)
+            #print ("Aborted training on %s - Unicode Error." % file)
 
     def _preprocessing(self, text, preprocessing_filters=None):
         '''
@@ -56,16 +56,17 @@ class DistributionalModel(object):
         preprocessing_filters -- Filters to apply.
         '''
         processed = []
-        for ppf in preprocessing_filters:
-            for sentence in text:
-                processed_sentence = ppf.apply(sentence)
-                processed.append(processed_sentence)
+        for sentence in text:
+            for ppf in preprocessing_filters:
+                sentence = ppf.apply(sentence)
+            processed.append(sentence)
         return processed
 
     def _token_desired(self, token, token_filters):
-        for tf in token_filters:
-            if token not in tf.apply([token]):
-                return False
+        if token_filters:
+            for tf in token_filters:
+                if token not in tf.apply([token]):
+                    return False
         return True
 
     @abstractmethod
@@ -145,13 +146,6 @@ class StandardModel(DistributionalModel):
         '''
         return sum([sys.getsizeof(self.model[k] for k in self.model)])
 
-def window(seq, size):
-    Context = namedtuple('Context', ['word', 'context'])
-    for i in range(len(seq)):
-        context = seq[max(i - size, 0):i] + \
-                  seq[min(i + 1, len(seq)):min(i + size, len(seq))]
-        yield Context(word = seq[i], context = context)
-
 
 
 class SimpleDistribution(DistributionalModel):
@@ -192,6 +186,48 @@ class PartOfSpeechModel(DistributionalModel):
     the sentence boundary. 
     '''
 
+    def __init__(self, windowsize, pos):
+        '''
+        POS -- The part of speech we are interested in. This string must correspond
+               to one of the 'universal' parts of speech: 
+                 
+               ADJ  - adjective
+               ADP  - adposition
+               ADV  - adverb
+               CONJ - conjunction
+               DET  - determiner, article
+               NOUN - noun
+               NUM  - numeral
+               PRT  - particle
+               PRON - pronoun
+               VERB - verb
+               .    - punctuation
+               X    - other
+        '''
+        self.pos        = pos
+        self.model      = defaultdict(lambda: Counter())
+        self.windowsize = windowsize
+
+    def train(self, text, preprocessing_filters=None, token_filters=None, wordmap=None):
+        for sentence in text:
+            for w in pos_window(sentence, self.windowsize, self.pos):
+                word    = w.word
+                context = self._preprocessing([w.context], preprocessing_filters)
+                if self._token_desired(word, token_filters):
+                    self.model[word].update(context[0])
+
+    def feature_vectors(self):
+        return self.model
+
+    def save(self, filename):
+        db = BerkeleyStore(filename)
+        db.update(self.model)
+
+    def load(self, filename):
+        db = BerkeleyStore(filename)
+        for word in sorted(db.keys()):
+            self.model.update( { word : db.context(word) })  
+
 
 
 class SentimentModel(DistributionalModel):
@@ -204,4 +240,21 @@ class SentimentModel(DistributionalModel):
 
 
 
+def window(seq, size):
+    Context = namedtuple('Context', ['word', 'context'])
+    for i in range(len(seq)):
+        context = seq[max(i - size, 0):i] + \
+                  seq[min(i + 1, len(seq)):min(i + size, len(seq))]
+        yield Context(word = seq[i], context = context)
 
+def pos_window(seq, size, pos):
+    Context = namedtuple('Context', ['word', 'context'])
+    seq = nltk.pos_tag(seq, 'universal')
+    #print (seq)
+    for i in range(len(seq)):
+        word          = seq[i][0]
+        before_target = [t[0] for t in seq[0:i] if t[1] == pos]
+        after_target  = [t[0] for t in seq[min(i+1, len(seq)):len(seq)] if t[1] == pos]
+        context = before_target[max(len(before_target) - size, 0):len(before_target)] + \
+                  after_target[0:min(size, len(after_target))]
+        yield Context(word, context = context)

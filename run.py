@@ -7,7 +7,7 @@ Created on Mar 11, 2016
 import os
 import filters
 from collections import namedtuple, defaultdict, Counter
-from distributional import DistributionalModel, StandardModel
+from distributional import DistributionalModel, StandardModel, SimpleDistribution, PartOfSpeechModel
 from modelstore import MemoryStore, BerkeleyStore
 from wordmap import WordMap
 
@@ -108,7 +108,6 @@ def chunks(l, n):
     for i in range(0, len(l), n):
         yield l[i:i+n]
 
-'''
 corpus = extract_corpus('/media/1tb/tyler/cs/data/Corpora/Gutenberg/files/')
 
 special = ['end', 'finish',
@@ -138,20 +137,47 @@ lowercase = filters.LowerCase()
 content_word = filters.ContentWord()
 stop_word = filters.StopWord()
 
-model = StandardModel(3)
-model.train_on_multiple(corpus[0:10000], 
+# Standard Distribution
+'''
+model = StandardDistribution(3)
+model.train_on_multiple(corpus[0:10], 
                         preprocessing_filters = [lemmatize, stem, lowercase, stop_word],
                         token_filters = [special])
-model.save('test.db')
+model.save('standard.db')
 '''
 
-new_model = StandardModel(3)
-new_model.load('test.db')
+# Count
+'''
+model = SimpleDistribution()
+model.train_on_multiple(corpus[0:10000],
+                        preprocessing_filters = [lemmatize, stem, lowercase],
+                        token_filters = None)
+model.save('count.db')
+'''
 
-for word, fv in new_model.feature_vectors().items():
-    print ("\n\n")
-    print word
-    for word in fv:
-        if fv[word] > 100:
-            print "%s %d" % (word, fv[word])
+# Adjective Model
+'''
+model = PartOfSpeechModel(2, 'ADJ')
+model.train_on_multiple(corpus[0:1],
+                        preprocessing_filters = [lemmatize, stem, lowercase, stop_word],
+                        token_filters = [special])
+model.save('adjective.db')
+'''
 
+# Noun Model
+'''
+model = PartOfSpeechModel(2, 'NOUN')
+model.train_on_multiple(corpus[0:1],
+                        preprocessing_filters = [lemmatize, stem, lowercase, stop_word],
+                        token_filters = [special])
+model.save('noun.db')
+'''
+
+# Verb Model
+'''
+model = PartOfSpeechModel(2, 'VERB')
+model.train_on_multiple(corpus[0:1],
+                        preprocessing_filters = [lemmatize, stem, lowercase, stop_word],
+                        token_filters = [special])
+model.save('verb.db')
+'''
