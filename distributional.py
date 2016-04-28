@@ -46,7 +46,8 @@ class DistributionalModel(object):
                 text = [nltk.word_tokenize(s) for s in sentences]
                 self.train(text, preprocessing_filters, token_filters)
             except:
-                print ("Aborted training on %s - Unicode Error." % file)
+                print ("Aborted training on %s." % file)
+                print (sys.exc_info()[0])
 
     def _preprocessing(self, text, preprocessing_filters=None):
         '''
