@@ -36,6 +36,7 @@ class WordMap(object):
         Returns the word for this integer mapping. If this word is not in the
         WordMap, returns None.
         '''
+        map_id = str(map_id)
         return self.rwmap[map_id] if map_id in self.rwmap else None
 
     def save(self, filename):
