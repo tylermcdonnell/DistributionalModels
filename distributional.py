@@ -36,8 +36,8 @@ class DistributionalModel(object):
         token_filters         -- Filters to exclude tokens from feature vector creation.
         '''
         count = 0
+        tokenizer = nltk.data.load('tokenizers/punkt/english.pickle') 
         for file in files:
-            tokenizer = nltk.data.load('tokenizers/punkt/english.pickle') 
             count += 1
             print ("Training model on %d of %d: %s" % (count, len(files), file))
             try:
@@ -46,7 +46,8 @@ class DistributionalModel(object):
                 text = [nltk.word_tokenize(s) for s in sentences]
                 self.train(text, preprocessing_filters, token_filters)
             except:
-                print ("Aborted training on %s - Unicode Error." % file)
+                print ("Aborted training on %s." % file)
+                print (sys.exc_info()[0])
 
     def _preprocessing(self, text, preprocessing_filters=None):
         '''
@@ -55,12 +56,10 @@ class DistributionalModel(object):
         text                  -- List of tokenized sentences.
         preprocessing_filters -- Filters to apply.
         '''
-        processed = []
         for sentence in text:
             for ppf in preprocessing_filters:
                 sentence = ppf.apply(sentence)
-            processed.append(sentence)
-        return processed
+            yield sentence
 
     def _token_desired(self, token, token_filters):
         if token_filters:
@@ -250,7 +249,6 @@ def window(seq, size):
 def pos_window(seq, size, pos):
     Context = namedtuple('Context', ['word', 'context'])
     seq = nltk.pos_tag(seq, 'universal')
-    #print (seq)
     for i in range(len(seq)):
         word          = seq[i][0]
         before_target = [t[0] for t in seq[0:i] if t[1] == pos]
