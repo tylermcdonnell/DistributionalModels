@@ -147,13 +147,11 @@ model.save('standard.db')
 '''
 
 # Count
-'''
 model = SimpleDistribution()
 model.train_on_multiple(corpus[0:10000],
                         preprocessing_filters = [lemmatize, stem, lowercase],
                         token_filters = None)
 model.save('count.db')
-'''
 
 # Adjective Model
 '''
