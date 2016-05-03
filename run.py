@@ -7,7 +7,7 @@ Created on Mar 11, 2016
 import os
 import filters
 from collections import namedtuple, defaultdict, Counter
-from distributional import DistributionalModel, StandardModel, SimpleDistribution, PartOfSpeechModel
+from distributional import DistributionalModel, StandardModel, SimpleDistribution, PartOfSpeechModel, SentimentModel
 from modelstore import MemoryStore, BerkeleyStore
 from wordmap import WordMap
 
@@ -108,74 +108,73 @@ def chunks(l, n):
     for i in range(0, len(l), n):
         yield l[i:i+n]
 
-corpus = extract_corpus('/media/1tb/tyler/cs/data/Corpora/Gutenberg/files/')
-
-special = ['end', 'finish',
-           'cry', 'sob',
-           'cold', 'icy',
-           'begin', 'start',
-           'save', 'keep',
-           'hope', 'wish',
-           'choose', 'pick',
-           'paste', 'glue', 
-           'hurry', 'rush', 
-           'brave', 'courageous',
-           'sad', 'unhappy',
-           'friend', 'pal',
-           'enjoy', 'like',
-           'error', 'mistake',
-           'smile', 'grin',
-           'harm', 'hurt',
-           'large', 'big',
-           'small', 'little', 
-           'mother', 'mom',
-           'father', 'dad']
-special = filters.SpecialWords(special)
+#corpus = extract_corpus('/media/1tb/tyler/cs/data/Corpora/Gutenberg/files/')
+corpus = extract_corpus('D:/Work/CS/NLP/Corpora/Gutenberg/gutenberg/files/')
 lemmatize = filters.Lemmatize()
 stem = filters.Stem()
+target = [line.strip('\n') for line in open('WordLists/target_words.txt')]
+target = lemmatize.apply(target)
+target = stem.apply(target)
+print (len(target))
+print (target)
+target = filters.SpecialWords(target)
 lowercase = filters.LowerCase()
 content_word = filters.ContentWord()
 stop_word = filters.StopWord()
 
-# Standard Distribution
 '''
-model = StandardDistribution(3)
-model.train_on_multiple(corpus[0:10], 
+# Standard Distribution
+model = StandardModel(3)
+model.train_on_multiple(corpus[0:10000],
                         preprocessing_filters = [lemmatize, stem, lowercase, stop_word],
-                        token_filters = [special])
-model.save('standard.db')
+                        token_filters = [target])
+model.save('standard.pkl')
 '''
 
+'''
 # Count
 model = SimpleDistribution()
-model.train_on_multiple(corpus[0:10000],
-                        preprocessing_filters = [lemmatize, stem, lowercase],
+model.train_on_multiple(corpus[0:500],
+                        preprocessing_filters = [lowercase],
                         token_filters = None)
 model.save('count.db')
-
-# Adjective Model
-'''
-model = PartOfSpeechModel(2, 'ADJ')
-model.train_on_multiple(corpus[0:1],
-                        preprocessing_filters = [lemmatize, stem, lowercase, stop_word],
-                        token_filters = [special])
-model.save('adjective.db')
 '''
 
+'''
 # Noun Model
-'''
 model = PartOfSpeechModel(2, 'NOUN')
-model.train_on_multiple(corpus[0:1],
+model.train_on_multiple(corpus[0:5000],
                         preprocessing_filters = [lemmatize, stem, lowercase, stop_word],
-                        token_filters = [special])
-model.save('noun.db')
+                        token_filters = [target])
+model.save('noun.pkl')
 '''
 
-# Verb Model
+
 '''
-model = PartOfSpeechModel(2, 'VERB')
-model.train_on_multiple(corpus[0:1],
+# Adjective Model
+model = PartOfSpeechModel(2, 'ADJ')
+model.train_on_multiple(corpus[0:5000],
                         preprocessing_filters = [lemmatize, stem, lowercase, stop_word],
-                        token_filters = [special])
-model.save('verb.db')
+                        token_filters = [target])
+model.save('adjective.pkl')
 '''
+
+
+'''
+# Verb Model
+model = PartOfSpeechModel(2, 'VERB')
+model.train_on_multiple(corpus[0:5000],
+                        preprocessing_filters = [lemmatize, stem, lowercase, stop_word],
+                        token_filters = [target])
+model.save('verb.pkl')
+'''
+
+
+# Sentiment Model
+model = SentimentModel()
+model.train_on_multiple(corpus[0:5000],
+                        preprocessing_filters = [lemmatize, stem, lowercase],
+                        token_filters = [target])
+model.save('sentiment.pkl')
+for entry in sorted(model.model):
+    print ('{} {}'.format(entry, model.model[entry]))

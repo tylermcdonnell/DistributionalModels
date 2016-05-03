@@ -5,7 +5,10 @@
 
 # Standard
 import pickle
-import anydbm
+# Python 2
+#import anydbm
+# Python 3
+import dbm
 ######################################################################################
 
 class WordMap(object):

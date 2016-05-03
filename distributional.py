@@ -5,12 +5,14 @@
 
 # Standard
 import sys
-from modelstore import BerkeleyStore
+import traceback
+from modelstore import BerkeleyStore, PickleStore
 from abc import abstractmethod
 from collections import Counter, defaultdict, namedtuple
 # NLTK
 import nltk
 import nltk.data
+from nltk.sentiment.vader import SentimentIntensityAnalyzer
 from nltk.stem.snowball import SnowballStemmer
 from nltk.stem.wordnet import WordNetLemmatizer
 ######################################################################################
@@ -37,17 +39,18 @@ class DistributionalModel(object):
         '''
         count = 0
         tokenizer = nltk.data.load('tokenizers/punkt/english.pickle') 
-        for file in files:
+        for file in sorted(files):
             count += 1
             print ("Training model on %d of %d: %s" % (count, len(files), file))
             try:
-                raw = open(file, 'rb').read()
+                raw = open(file, 'rb').read().decode('utf8')
                 sentences = tokenizer.tokenize(raw)
                 text = [nltk.word_tokenize(s) for s in sentences]
                 self.train(text, preprocessing_filters, token_filters)
             except:
                 print ("Aborted training on %s." % file)
                 print (sys.exc_info()[0])
+                traceback.print_exc()
 
     def _preprocessing(self, text, preprocessing_filters=None):
         '''
@@ -109,7 +112,7 @@ class StandardModel(DistributionalModel):
 
     def __init__(self, windowsize):
         # Data structures and model parameters.
-        self.model      = defaultdict(lambda: Counter())
+        self.model      = defaultdict(counter)
         self.windowsize = windowsize
 
     def train(self, text, preprocessing_filters=None, token_filters=None, wordmap=None):
@@ -153,7 +156,7 @@ class SimpleDistribution(DistributionalModel):
     '''
     
     def __init__(self):
-        self.counts = defaultdict(lambda: defaultdict(int))
+        self.counts = defaultdict(dd)
         self.total  = 0
     
     def train(self, text, preprocessing_filters=None, token_filters=None, wordmap=None):
@@ -204,7 +207,7 @@ class PartOfSpeechModel(DistributionalModel):
                X    - other
         '''
         self.pos        = pos
-        self.model      = defaultdict(lambda: Counter())
+        self.model      = defaultdict(counter)
         self.windowsize = windowsize
 
     def train(self, text, preprocessing_filters=None, token_filters=None, wordmap=None):
@@ -213,7 +216,7 @@ class PartOfSpeechModel(DistributionalModel):
                 word    = w.word
                 context = self._preprocessing([w.context], preprocessing_filters)
                 if self._token_desired(word, token_filters):
-                    self.model[word].update(context[0])
+                    self.model[word].update(next(context))
 
     def feature_vectors(self):
         return self.model
@@ -230,12 +233,95 @@ class PartOfSpeechModel(DistributionalModel):
 
 
 class SentimentModel(DistributionalModel):
+    '''
+    Models sentiment-based distributional features using the Vader rule-based Sentiment Analyzer in NLTK.
+
+    For occurrences of the word, these features are provided:
+
+    1. Same Sentence Similarity (SSS) - Counts of sentiment of containg sentences of token.
+       '#F_SSS_Positive' - '#F_SSS_Negative'
+
+    2. Same Sentence Intensity Sum (SSIS) - Sum of same sentence intensities.
+       '#F_SSIS'
+
+    3. Adjacent Sentence Similarity (ASS) - Counts of sentiment of adjacent sentences.
+       '#F_ASS_Positive' - '#F_ASS_Negative'
+
+    4. Adjacent Sentence Intensity Sum (ASIS) - Sum of adjacent sentence intensities.
+       '#F_ASIS'
+    '''
 
     def __init__(self):
-        pass
+        self.model    = defaultdict(dd)
+        self.analyzer = SentimentIntensityAnalyzer()
 
-    def run(self, text, wordmap=None):
-        pass
+    def train(self, text, preprocessing_filters=None, token_filters=None, wordmap=None):
+        '''
+        Note: Preprocessing filters are applied after sentiment analysis scores are computed.
+        '''
+        # Calculate sentiment scores once upfront for processing.
+        POS    = '#F_SSS_Positive'
+        NEG    = '#F_SSS_Negative'
+        APOS   = '#F_ASS_Positive'
+        ANEG   = '#F_ASS_Negative'
+        SSIS   = '#F_SSIS'
+        ASIS   = '#F_ASIS'
+        scores = [self.analyzer.polarity_scores((' ').join(sentence)) for sentence in text]
+        text   = self._preprocessing(text, preprocessing_filters)
+        for idx, sentence in enumerate(text):
+            for token in sentence:
+                if self._token_desired(token, token_filters):
+                    # Categorize sentence of occurrence.
+                    category = self.categorize(scores[idx])
+                    if (category == 'pos'):
+                        self.model[token][POS] += 1
+                    if (category == 'neg'):
+                        self.model[token][NEG] += 1
+                    # Intensity. -1 = Most Negative | 1 = Most Positive
+                    self.model[token][SSIS] += scores[idx]['compound']
+
+                    # Categorize adjacent sentences. Do they tell us something different?
+                    # e.g., do they tell us something extra in neutral cases?
+                    adjacent = []
+                    if (idx - 1 >= 0):
+                        adjacent.append(idx - 1)
+                    if (idx + 1 < len(scores)):
+                        adjacent.append(idx + 1)
+                    adjacent = [self.categorize(scores[i]) for i in adjacent]
+                    for category in adjacent:
+                        if (category == 'pos'):
+                            self.model[token][APOS] += 1
+                        if (category == 'neg'):
+                            self.model[token][ANEG] += 1
+                        # Intensity. -1 = Most Negative | 1 = Most Positive
+                        self.model[token][ASIS] += scores[idx]['compound']
+
+    def categorize(self, vader_score):
+        '''
+        Given a Vader polarity score, categorizes as either Positive or Negative.
+        :param vader_score: NLTK Vader polarity score.
+        :return: 'pos' if Positive; 'neg' is Negative.
+        '''
+        # Vader overwhelmingly favors Neutral; We will simply take the maximum of Positive and Negative.
+        vader_score = [(s, vader_score[s]) for s in vader_score \
+                       if (s != 'compound') and (s != 'neu')]
+        vader_score.sort(key=lambda s: s[1], reverse=True)
+        return vader_score[0][0]
+
+    def feature_vectors(self):
+        return self.model
+
+    def save(self, filename):
+        db = BerkeleyStore(filename)
+        db.update(self.model)
+
+    def load(self, filename):
+        db = BerkeleyStore(filename)
+        for word in sorted(db.keys()):
+            self.model.update({word: db.context(word)})
+
+
+
 
 
 
@@ -256,3 +342,15 @@ def pos_window(seq, size, pos):
         context = before_target[max(len(before_target) - size, 0):len(before_target)] + \
                   after_target[0:min(size, len(after_target))]
         yield Context(word, context = context)
+
+'''
+# To accomodate Pickle, which doesn't accept lambda definitions.
+'''
+def counter():
+    return Counter()
+
+'''
+# To accomodate Pickle, which doesn't accept lambda definitions.
+'''
+def dd():
+    return defaultdict(int)
