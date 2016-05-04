@@ -8,7 +8,7 @@ import os
 import filters
 from collections import namedtuple, defaultdict, Counter
 from distributional import DistributionalModel, StandardModel, SimpleDistribution, PartOfSpeechModel, SentimentModel, PatternModel
-from modelstore import BerkeleyStore
+from modelstore import BerkeleyStore, PickleStore
 from wordmap import WordMap
 
 # NLTK imports.
@@ -123,16 +123,11 @@ content_word = filters.ContentWord()
 stop_word = filters.StopWord()
 
 # Standard Distribution
-model = StandardModel(3)
-model.train_on_multiple(corpus[0:1],
-                        preprocessing_filters = [lemmatize, stem, lowercase, stop_word],
-                        token_filters = [target])
-model.save(os.path.join('Models', 'standard'))
-
-model2 = StandardModel(3)
-model2.load(os.path.join('Models', 'standard'))
-for key in model2.model.keys():
-    print ('{} : {}'.format(key, model2.model[key]))
+model = PatternModel([''])
+store = PickleStore('pattern_from')
+new   = BerkeleyStore('pattern_from')
+model.load(store)
+model.save(new)
 
 '''
 # Count

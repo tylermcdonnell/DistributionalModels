@@ -30,13 +30,29 @@ class DistributionalModel(object):
     where each feature has a string label. 
     '''
 
+    def save(self, store):
+        '''
+        Saves a distributional model to persistent storage.
+        :param store: ModelStore to save model.
+        '''
+        store.update_all(self.model)
+
+    def load(self, store):
+        '''
+        Loads a distributional model from persistent storage.
+        :param store: ModelStore to load model.
+        '''
+        model = self.feature_vectors()
+        for word in sorted(store.keys()):
+            self.model.update({word: store.context(word)})
+
     def train_on_multiple(self, files, preprocessing_filters=None, token_filters=None):
         '''
         Trains the model on multiple input .txt files.
         
-        files                 -- Absolute paths to files.
-        preprocessing_filters -- Filters to apply to input text before processing.
-        token_filters         -- Filters to exclude tokens from feature vector creation.
+        :param files:                 Absolute paths to files.
+        :param preprocessing_filters: Filters to apply to input text before processing.
+        :param token_filters:         Filters to exclude tokens from feature vector creation.
         '''
         count = 0
         tokenizer = nltk.data.load('tokenizers/punkt/english.pickle') 
@@ -77,19 +93,19 @@ class DistributionalModel(object):
         '''
         Trains the model on the input data.
         
-        text                  -- List of tokenized sentences.
-        preprocessing_filters -- Filters to apply to input text before processing.
-        token_filters         -- Filters to exclude tokens from feature vector creation.
-        wordmap               -- WordMap for storage efficiency.
+        :param text:                  List of tokenized sentences.
+        :param preprocessing_filters: Filters to apply to input text before processing.
+        :param token_filters:         Filters to exclude tokens from feature vector creation.
+        :param wordmap:               WordMap for storage efficiency.
         '''
         pass
 
     @abstractmethod
     def feature_vectors(self):
         '''
-        Returns a dictionary of extracted vectors in form : { word : features }
+        Returns a dictionary of distributional vectors in form : { string : vector }
         '''
-        pass            
+        return {}
 
 
 
@@ -128,14 +144,6 @@ class StandardModel(DistributionalModel):
     def feature_vectors(self):
         return self.model
 
-    def save(self, filename):
-        db = BerkeleyStore(filename)
-        db.update_all(self.model)
-
-    def load(self, filename):
-        db = BerkeleyStore(filename)
-        for word in sorted(db.keys()):
-            self.model.update( { word : db.context(word) })
 
     def _clear(self):
         '''
@@ -170,15 +178,6 @@ class SimpleDistribution(DistributionalModel):
 
     def feature_vectors(self):
         return self.counts
-
-    def save(self, filename):
-        db = BerkeleyStore(filename)
-        db.update_all(self.counts)
-
-    def load(self, filename):
-        db = BerkeleyStore(filename)
-        for word in sorted(db.keys()):
-            self.counts.update( { word : db.context(word) })
 
 
 
@@ -221,15 +220,6 @@ class PartOfSpeechModel(DistributionalModel):
 
     def feature_vectors(self):
         return self.model
-
-    def save(self, filename):
-        db = BerkeleyStore(filename)
-        db.update_all(self.model)
-
-    def load(self, filename):
-        db = BerkeleyStore(filename)
-        for word in sorted(db.keys()):
-            self.model.update( { word : db.context(word) })
 
 
 
@@ -312,14 +302,6 @@ class SentimentModel(DistributionalModel):
     def feature_vectors(self):
         return self.model
 
-    def save(self, filename):
-        db = PickleStore(filename)
-        db.update_all(self.model)
-
-    def load(self, filename):
-        db = PickleStore(filename)
-        for word in sorted(db.keys()):
-            self.model.update({word: db.context(word)})
 
 
 class PatternModel(DistributionalModel):
@@ -371,18 +353,6 @@ class PatternModel(DistributionalModel):
 
     def feature_vectors(self):
         return self.model
-
-    def save(self, filename):
-        db = PickleStore(filename)
-        db.update_all(self.model)
-
-    def load(self, filename):
-        db = PickleStore(filename)
-        for word in sorted(db.keys()):
-            self.model.update({word: db.context(word)})
-
-
-
 
 
 

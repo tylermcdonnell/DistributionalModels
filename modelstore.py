@@ -85,9 +85,9 @@ class PickleStore(ModelStore):
     '''
 
     def __init__(self, filename):
-        self.filename = filename
-        if os.path.isfile(filename + '.pkl'):
-            self.model = pickle.load(open(filename, 'rb'))
+        self.filename = filename + '.pkl'
+        if os.path.isfile(self.filename):
+            self.model = pickle.load(open(self.filename, 'rb'))
         else:
             self.model = {}
 
@@ -119,7 +119,7 @@ class BerkeleyStore(ModelStore):
     
     def __init__(self, filename):
         # Persistent model storage.
-        self.db = dbm.open(filename, 'c')
+        self.db = dbm.open(filename + '.db', 'c')
 
     def keys(self):
         # Depending on the type of database, reads from database may be in bytes.
