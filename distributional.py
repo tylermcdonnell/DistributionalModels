@@ -6,6 +6,7 @@
 # Standard
 import sys
 import traceback
+import itertools
 from modelstore import BerkeleyStore, PickleStore
 from abc import abstractmethod
 from collections import Counter, defaultdict, namedtuple
@@ -129,7 +130,7 @@ class StandardModel(DistributionalModel):
 
     def save(self, filename):
         db = BerkeleyStore(filename)
-        db.update(self.model)
+        db.update_all(self.model)
 
     def load(self, filename):
         db = BerkeleyStore(filename)
@@ -172,7 +173,7 @@ class SimpleDistribution(DistributionalModel):
 
     def save(self, filename):
         db = BerkeleyStore(filename)
-        db.update(self.counts)
+        db.update_all(self.counts)
 
     def load(self, filename):
         db = BerkeleyStore(filename)
@@ -223,12 +224,12 @@ class PartOfSpeechModel(DistributionalModel):
 
     def save(self, filename):
         db = BerkeleyStore(filename)
-        db.update(self.model)
+        db.update_all(self.model)
 
     def load(self, filename):
         db = BerkeleyStore(filename)
         for word in sorted(db.keys()):
-            self.model.update( { word : db.context(word) })  
+            self.model.update( { word : db.context(word) })
 
 
 
@@ -312,11 +313,71 @@ class SentimentModel(DistributionalModel):
         return self.model
 
     def save(self, filename):
-        db = BerkeleyStore(filename)
-        db.update(self.model)
+        db = PickleStore(filename)
+        db.update_all(self.model)
 
     def load(self, filename):
-        db = BerkeleyStore(filename)
+        db = PickleStore(filename)
+        for word in sorted(db.keys()):
+            self.model.update({word: db.context(word)})
+
+
+class PatternModel(DistributionalModel):
+    '''
+    Models distributional string patterns in text. Popular patterns from literature include:
+
+    "Either X or Y"
+    "Neither X or Y"
+    "From X to Y"
+    '''
+
+    def __init__(self, patterns):
+        '''
+        Initializes a PatternModel for the specified patterns.
+        :param patterns: Iterable of patterns. Each pattern should be a string, where variables are represented by
+        the substring "$V$". For example, the popular pattern "Either X or Y" could be represented by the pattern:
+        "Either $v$ or $v$"
+        '''
+        self.model      = defaultdict(dd)
+        self.stemmer    = SnowballStemmer("english")
+        self.lemmatizer = WordNetLemmatizer()
+        self.VARIABLE   = '$v$'
+        self.patterns   = [pattern.split() for pattern in patterns]
+
+    def train(self, text, preprocessing_filters=None, token_filters=None, wordmap=None):
+        text = self._preprocessing(text, preprocessing_filters)
+        for pattern in self.patterns:
+            pattern = next(self._preprocessing([pattern], preprocessing_filters))
+            for sentence in text:
+                found = self.search_for_pattern(sentence, pattern)
+                for p in found:
+                    for permutation in itertools.permutations(p, 2):
+                        self.model[permutation[0]][permutation[1]] += 1
+                        print ('Found matching pattern: {} - {}'.format(permutation[0], permutation[1]))
+
+    def search_for_pattern(self, text, pattern):
+        for t_idx in range(len(text)):
+            if self.pattern_match(text, t_idx, pattern):
+                yield [text[t_idx + i] for i in range(len(pattern)) if pattern[i] == self.VARIABLE]
+
+    def pattern_match(self, text, t_idx, pattern):
+        p_idx = 0
+        while ((t_idx < len(text) and text[t_idx] == pattern[p_idx]) or pattern[p_idx] == self.VARIABLE):
+            p_idx += 1
+            t_idx += 1
+            if p_idx == len(pattern):
+                return True
+        return False
+
+    def feature_vectors(self):
+        return self.model
+
+    def save(self, filename):
+        db = PickleStore(filename)
+        db.update_all(self.model)
+
+    def load(self, filename):
+        db = PickleStore(filename)
         for word in sorted(db.keys()):
             self.model.update({word: db.context(word)})
 

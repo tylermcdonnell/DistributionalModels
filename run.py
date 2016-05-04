@@ -7,8 +7,8 @@ Created on Mar 11, 2016
 import os
 import filters
 from collections import namedtuple, defaultdict, Counter
-from distributional import DistributionalModel, StandardModel, SimpleDistribution, PartOfSpeechModel, SentimentModel
-from modelstore import MemoryStore, BerkeleyStore
+from distributional import DistributionalModel, StandardModel, SimpleDistribution, PartOfSpeechModel, SentimentModel, PatternModel
+from modelstore import BerkeleyStore
 from wordmap import WordMap
 
 # NLTK imports.
@@ -122,14 +122,17 @@ lowercase = filters.LowerCase()
 content_word = filters.ContentWord()
 stop_word = filters.StopWord()
 
-'''
 # Standard Distribution
 model = StandardModel(3)
-model.train_on_multiple(corpus[0:10000],
+model.train_on_multiple(corpus[0:1],
                         preprocessing_filters = [lemmatize, stem, lowercase, stop_word],
                         token_filters = [target])
-model.save('standard.pkl')
-'''
+model.save(os.path.join('Models', 'standard'))
+
+model2 = StandardModel(3)
+model2.load(os.path.join('Models', 'standard'))
+for key in model2.model.keys():
+    print ('{} : {}'.format(key, model2.model[key]))
 
 '''
 # Count
@@ -146,9 +149,17 @@ model = PartOfSpeechModel(2, 'NOUN')
 model.train_on_multiple(corpus[0:5000],
                         preprocessing_filters = [lemmatize, stem, lowercase, stop_word],
                         token_filters = [target])
-model.save('noun.pkl')
+model.save('noun')
 '''
 
+'''
+# Adverb Model
+model = PartOfSpeechModel(2, 'ADV')
+model.train_on_multiple(corpus[0:5000],
+                        preprocessing_filters = [lemmatize, stem, lowercase, stop_word],
+                        token_filters = [target])
+model.save('adverb')
+'''
 
 '''
 # Adjective Model
@@ -169,7 +180,7 @@ model.train_on_multiple(corpus[0:5000],
 model.save('verb.pkl')
 '''
 
-
+'''
 # Sentiment Model
 model = SentimentModel()
 model.train_on_multiple(corpus[0:5000],
@@ -178,3 +189,14 @@ model.train_on_multiple(corpus[0:5000],
 model.save('sentiment.pkl')
 for entry in sorted(model.model):
     print ('{} {}'.format(entry, model.model[entry]))
+'''
+
+'''
+# Pattern Model
+model = PatternModel(['either $V$ or $V$'])
+model.train_on_multiple(corpus[0:5000],
+                        preprocessing_filters = [lemmatize, stem, lowercase],
+                        token_filters = None)
+model.save('pattern_either')
+'''
+
