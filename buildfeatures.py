@@ -44,7 +44,8 @@ class SentimentFeatures(object):
             features[tup] = {}
             if tup[0] not in self.sentiment.features or \
                     tup[1] not in self.sentiment.features:
-                raise KeyError('Member of tuple not in Sentiment vector')
+                raise KeyError('Member of tuple not in Sentiment vector',
+                               tup[0], tup[1])
 
             for key in self.sentiment.features[tup[0]]:
                 features[tup][key] = abs(self.sentiment.features[tup[0]][key] -
@@ -125,12 +126,27 @@ class PartOfSpeechFeatures(object):
         """
         features = {}
         for tup in tuples:
-            if tup[0] not in self.pos.features or \
-                    tup[1] not in self.pos.features:
-                raise KeyError('Member of tuple not in POS vector')
+            # for tup, orig_tup in zip(tuples, orig_tuples):
+            #     if tup[0] not in self.pos.features:
+            #         print(tup[0], orig_tup[0])
+            #     if tup[1] not in self.pos.features:
+            #         print(tup[1], orig_tup[1])
 
-            vec_1 = self.pos.features[tup[0]]
-            vec_2 = self.pos.features[tup[1]]
+            # if tup[0] not in self.pos.features or \
+            #         tup[1] not in self.pos.features:
+            #     raise KeyError('Member of tuple not in POS vector',
+            #                    tup[0], tup[1])
+
+            if tup[0] in self.pos.features:
+                vec_1 = self.pos.features[tup[0]]
+            else:
+                vec_1 = {}
+
+            if tup[1] in self.pos.features:
+                vec_2 = self.pos.features[tup[1]]
+            else:
+                vec_2 = {}
+
             features[tup] = cosine_similarity(vec_1, vec_2)
         return features
 

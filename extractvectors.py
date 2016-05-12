@@ -1,7 +1,6 @@
 from distributional import SentimentModel, PatternModel, PartOfSpeechModel
 from modelstore import BerkeleyStore
 from utils import *
-import filters
 
 from abc import abstractmethod
 from math import log
@@ -74,16 +73,13 @@ class SentimentVector(ExtractVectors):
             dict: Dictionary of word, sentiment score
         """
         analyzer = SentimentIntensityAnalyzer()
-        lemmatize = filters.Lemmatize()
-        stem = filters.Stem()
 
         word_sentiments = {}
         with open(self.target_words_filename, 'r') as f:
             for line in f:
                 word = line[:-1].lower()
                 score = analyzer.polarity_scores(word)['compound']
-                word = lemmatize.apply([word])[0]
-                word = stem.apply([word])[0]
+                word = lemmatize_and_stem(word)
                 word_sentiments[word] = score
         return word_sentiments
 
